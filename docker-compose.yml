@@ -1,0 +1,21 @@
+services:
+  swarm-self-drain:
+    build: .
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - API_PSK_FILE=/run/secrets/api_psk
+      - DISCORD_WEBHOOK_URL_FILE=/run/secrets/discord_webhook_url
+      - DISCORD_SWARM_DRAIN=${DISCORD_SWARM_DRAIN:-"Node {node_name} has been drained from the Swarm cluster."}
+      - DISCORD_SWARM_ACTIVE=${DISCORD_SWARM_ACTIVE:-"Node {node_name} is now active in the Swarm cluster."}
+    secrets:
+      - api_psk
+      - discord_webhook_url
+    ports:
+      - "8000:8000"
+
+secrets:
+  api_psk:
+    external: true
+  discord_webhook_url:
+    external: true
