@@ -1,0 +1,8 @@
+{
+    "last_known_coverage_percent": 0.0,
+    "minimum_coverage_percent": 80.0,
+    "greenfield_ignore_coverage": {
+        "py": true,
+        "ts": true
+    }
+}
