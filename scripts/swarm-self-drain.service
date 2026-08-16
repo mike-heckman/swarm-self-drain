@@ -1,14 +1,19 @@
 [Unit]
 Description=Docker Swarm Self-Drain Hook
+# Optional: If you use a mesh network like Tailscale for your Swarm overlay, 
+# you MUST append `tailscaled.service` to BOTH the `After=` and `Wants=` lines below!
 After=docker.service network-online.target
-Requires=docker.service
+Wants=docker.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+# If using Tailscale, also append `tailscaled.service` to the wait-loop list below!
+ExecStartPre=/usr/bin/bash -c 'while ! systemctl is-active --quiet docker.service; do sleep 5; done'
 ExecStart=/usr/bin/python3 /opt/swarm-self-drain/worker-hook.py active
 ExecStop=/usr/bin/python3 /opt/swarm-self-drain/worker-hook.py drain
-TimeoutStartSec=90
+ExecStopPost=/usr/bin/bash -c 'for i in {1..12}; do if [ "$(/usr/bin/docker ps -q --filter label=com.docker.swarm.task.id | wc -l)" -eq 0 ]; then break; fi; echo "Waiting for Swarm drain..."; sleep 5; done'
+TimeoutStartSec=300
 TimeoutStopSec=90
 
 [Install]
