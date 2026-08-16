@@ -1,0 +1,49 @@
+#
+# NOTE: This configuration file is managed via the scripts/lint.sh script. 
+# Edits to this file **will be overwritten** if made directly. 
+#
+# To make changes, please edit the .model/.python/.ruff-master-config.toml file. 
+# This approach ensures that any updates are consistently applied across all projects
+# that use this template, and it allows for centralized management of linting rules
+# and formatting preferences. 
+# Last edit: 2026-04-03 by Mike
+#
+
+# Global Settings (Top-level)
+line-length = 120
+target-version = "py313"
+fix = true
+
+[lint]
+# E, F: Pyflakes/pycodestyle (Defaults)
+# I: isort (Import sorting)
+# D: pydocstyle (Docstrings)
+# ANN: flake8-annotations (Type hints)
+# B: flake8-bugbear (Common logic errors)
+# UP: pyupgrade (Ensures modern 3.10+ syntax like X | None)
+extend-select = ["I", "D", "ANN", "B", "UP"]
+
+# Ignore rules that conflict with "Tall" Google-style docstrings or specific preferences
+extend-ignore = [
+    "D200",   # Disables forcing single-line docstrings
+    "D212",   # Disables forcing summary on the first line
+    "D203",   # Conflict: one-blank-line-before-class (we prefer D211)
+    "D213",   # Conflict: multi-line-summary-second-line (we prefer D212-ignore)
+]
+
+[lint.pydocstyle]
+# Explicitly enforce the Google docstring convention
+convention = "google"
+
+[lint.flake8-annotations]
+# Allow 'Any' for *args and **kwargs to reduce noise, but enforce it everywhere else
+allow-star-arg-any = true
+suppress-none-returning = true
+
+[format]
+# Format-specific override (Keep in sync with global)
+quote-style = "double"
+
+[lint.per-file-ignores]
+# Ignore docstring and type annotation rules for tests
+"tests/*" = ["D", "ANN"]

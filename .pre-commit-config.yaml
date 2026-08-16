@@ -1,0 +1,16 @@
+repos:
+- repo: local
+  hooks:
+    - id: project-lint
+      name: 🧹 Linting
+      entry: bash -c '"${HOME}/.gemini/config/scripts/lint.sh"'
+      language: system
+      always_run: true
+      pass_filenames: false
+
+    - id: project-test
+      name: 🧪 Unit Tests & Coverage
+      entry: bash -c '"${HOME}/.gemini/config/scripts/test.sh" --pre-commit'
+      language: system
+      always_run: true
+      pass_filenames: false
