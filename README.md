@@ -19,10 +19,23 @@ Because this API manipulates the Docker socket, it requires strict security:
 - **Replay Protection:** The payload includes the `node_name`, a `timestamp` (validated to be within +/- 60 seconds), a `nonce`, and the `hmac_signature`.
 
 ## Discord Notifications (Optional)
-To provide deep visibility into the cluster state, both the worker hook and the manager API support optional Discord notifications:
-- **Worker Hook:** If `DISCORD_WEBHOOK_URL` and `DISCORD_SHUTDOWN` or `DISCORD_STARTUP` environment variables are present on the worker, it will send these messages to Discord immediately before executing its API request.
-- **Manager API:** If `DISCORD_WEBHOOK_URL` and `DISCORD_SWARM_ACTIVE` or `DISCORD_SWARM_DRAIN` environment variables are present on the manager, it will send a message to Discord *after* successfully updating the Docker Swarm node state.
+To provide deep visibility into the cluster state, both the worker hook and the manager API support optional Discord notifications mapped to 6 distinct states.
 
+**From the Worker Hook:**
+- `DISCORD_NODE_SHUTDOWN`: Sent immediately when the node starts its shutdown procedure.
+- `DISCORD_NODE_STARTUP`:  Sent immediately when the node starts its startup procedure.
+- `DISCORD_API_ERROR`:     Sent if the worker fails to reach the Manager API or encounters an error.
+- `DISCORD_SWARM_DRAIN`:   Sent *only* if the worker hook is running on a Manager node, after successfully self-draining locally.
+- `DISCORD_SWARM_ACTIVE`:  Sent *only* if the worker hook is running on a Manager node, after successfully activating locally.
+
+*(Note: The Worker Hook expects a `DISCORD_WEBHOOK_URL` environment variable).*
+
+**From the Manager API:**
+- `DISCORD_SWARM_DRAIN`:  Sent after the API successfully drains a standard worker node.
+- `DISCORD_SWARM_ACTIVE`: Sent after the API successfully activates a standard worker node.
+- `DISCORD_API_STARTUP`:  Sent when the Manager API container itself starts up.
+
+*(Note: The Manager API expects a `DISCORD_WEBHOOK_URL_FILE` environment variable).*
 ## Getting Started
 
 ### 0. Generate a PSK

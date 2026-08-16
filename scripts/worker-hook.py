@@ -12,8 +12,11 @@ Environment Variables required for Workers:
 
 Optional Discord Environment Variables:
 - DISCORD_WEBHOOK_URL: Webhook URL.
-- DISCORD_SHUTDOWN: Message sent on drain.
-- DISCORD_STARTUP: Message sent on active.
+- DISCORD_NODE_SHUTDOWN: Message sent on node shutdown.
+- DISCORD_NODE_STARTUP: Message sent on node startup.
+- DISCORD_SWARM_DRAIN: Message sent after manager local update drain.
+- DISCORD_SWARM_ACTIVE: Message sent after manager local update active.
+- DISCORD_API_ERROR: Message sent if script encounters an error.
 """
 
 import argparse
@@ -179,7 +182,7 @@ def notify_manager_api(manager_url: str, psk: str, node_name: str, action: str) 
     max_retries = 3
     for attempt in range(1, max_retries + 1):
         try:
-            with urllib.request.urlopen(req, timeout=60) as response:
+            with urllib.request.urlopen(req, timeout=25) as response:
                 response_data = json.loads(response.read().decode("utf-8"))
                 logger.info(f"API Request successful: {response_data}")
                 return
@@ -212,15 +215,22 @@ def main() -> None:
         node_name = get_node_name()
         manager = is_manager()
 
-        if discord_url and args.action == "drain" and "DISCORD_SHUTDOWN" in env_vars:
-            send_discord_notification(discord_url, env_vars["DISCORD_SHUTDOWN"].format(node_name=node_name))
+        if discord_url:
+            if args.action == "drain" and "DISCORD_NODE_SHUTDOWN" in env_vars:
+                send_discord_notification(discord_url, env_vars["DISCORD_NODE_SHUTDOWN"].format(node_name=node_name))
+            elif args.action == "active" and "DISCORD_NODE_STARTUP" in env_vars:
+                send_discord_notification(discord_url, env_vars["DISCORD_NODE_STARTUP"].format(node_name=node_name))
 
         if manager:
             logger.info(f"Node {node_name} is a manager. Performing local update.")
             update_node_local(node_name, args.action)
-            if discord_url and args.action == "active" and "DISCORD_STARTUP" in env_vars:
-                logger.info("Manager startup complete. Sending Discord notification.")
-                send_discord_notification(discord_url, env_vars["DISCORD_STARTUP"].format(node_name=node_name))
+            if discord_url:
+                if args.action == "drain" and "DISCORD_SWARM_DRAIN" in env_vars:
+                    logger.info("Manager local drain complete. Sending Discord notification.")
+                    send_discord_notification(discord_url, env_vars["DISCORD_SWARM_DRAIN"].format(node_name=node_name))
+                elif args.action == "active" and "DISCORD_SWARM_ACTIVE" in env_vars:
+                    logger.info("Manager local active complete. Sending Discord notification.")
+                    send_discord_notification(discord_url, env_vars["DISCORD_SWARM_ACTIVE"].format(node_name=node_name))
         else:
             logger.info(f"Node {node_name} is a worker. Notifying manager API.")
             api_psk = env_vars.get("API_PSK")
@@ -233,11 +243,13 @@ def main() -> None:
 
     except RuntimeError as e:
         logger.error(f"Execution failed: {e}")
-        if discord_url and args.action == "active" and "DISCORD_STARTUP" in env_vars:
-            logger.info("Sending fallback startup notification due to error.")
+        if discord_url and "DISCORD_API_ERROR" in env_vars:
+            logger.info("Sending API Error notification.")
             # If node_name wasn't successfully retrieved, fallback to 'unknown'
             safe_node_name = node_name if "node_name" in locals() else "unknown"
-            send_discord_notification(discord_url, env_vars["DISCORD_STARTUP"].format(node_name=safe_node_name))
+            send_discord_notification(
+                discord_url, env_vars["DISCORD_API_ERROR"].format(node_name=safe_node_name, error=str(e))
+            )
         sys.exit(1)
 
 
