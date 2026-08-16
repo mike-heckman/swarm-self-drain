@@ -1,0 +1,81 @@
+---
+- name: Deploy Swarm Self-Drain Worker Hook
+  hosts: workers
+  become: yes
+  vars:
+    install_dir: "/opt/swarm-self-drain"
+    # These variables should be provided via extra-vars or an encrypted vault
+    # api_psk: ""
+    # manager_api_url: ""
+    # discord_webhook_url: ""
+    # discord_node_shutdown: ""
+    # discord_node_startup: ""
+    # discord_api_error: ""
+    # discord_swarm_drain: ""
+    # discord_swarm_active: ""
+
+  tasks:
+    - name: Ensure Python 3 is installed
+      package:
+        name: python3
+        state: present
+
+    - name: Ensure installation directory exists
+      file:
+        path: "{{ install_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Distribute worker-hook.py
+      copy:
+        src: ../scripts/worker-hook.py
+        dest: "{{ install_dir }}/worker-hook.py"
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Distribute .env file
+      copy:
+        content: |
+          API_PSK={{ api_psk | default('') }}
+          MANAGER_API_URL={{ manager_api_url | default('') }}
+          DISCORD_WEBHOOK_URL={{ discord_webhook_url | default('') }}
+          DISCORD_NODE_SHUTDOWN={{ discord_node_shutdown | default('') }}
+          DISCORD_NODE_STARTUP={{ discord_node_startup | default('') }}
+          DISCORD_API_ERROR={{ discord_api_error | default('') }}
+          DISCORD_SWARM_DRAIN={{ discord_swarm_drain | default('') }}
+          DISCORD_SWARM_ACTIVE={{ discord_swarm_active | default('') }}
+        dest: "{{ install_dir }}/.env"
+        owner: root
+        group: root
+        mode: '0600'
+      no_log: true
+
+    - name: Distribute systemd service file
+      copy:
+        src: ../scripts/swarm-self-drain.service
+        dest: /etc/systemd/system/swarm-self-drain.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify:
+        - reload systemd
+        - restart swarm-self-drain
+
+    - name: Enable and start systemd service
+      systemd:
+        name: swarm-self-drain
+        enabled: yes
+        state: started
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: restart swarm-self-drain
+      systemd:
+        name: swarm-self-drain
+        state: restarted

@@ -218,7 +218,8 @@ def test_main_manager_success_active(monkeypatch) -> None:
 
     env = {
         "DISCORD_WEBHOOK_URL": "http://discord",
-        "DISCORD_STARTUP": "Node starting up",
+        "DISCORD_NODE_STARTUP": "Node starting up",
+        "DISCORD_SWARM_ACTIVE": "Node active",
     }
     mock_load_env = MagicMock(return_value=env)
     monkeypatch.setattr(worker_hook, "load_env", mock_load_env)
@@ -238,7 +239,9 @@ def test_main_manager_success_active(monkeypatch) -> None:
     worker_hook.main()
 
     mock_update.assert_called_once_with("manager_node", "active")
-    mock_discord.assert_called_once_with("http://discord", "Node starting up")
+    assert mock_discord.call_count == 2
+    mock_discord.assert_any_call("http://discord", "Node starting up")
+    mock_discord.assert_any_call("http://discord", "Node active")
 
 
 def test_main_worker_success(monkeypatch) -> None:
@@ -248,7 +251,7 @@ def test_main_worker_success(monkeypatch) -> None:
         "API_PSK": "secret",
         "MANAGER_API_URL": "http://manager",
         "DISCORD_WEBHOOK_URL": "http://discord",
-        "DISCORD_STARTUP": "Node starting up",
+        "DISCORD_NODE_STARTUP": "Node starting up",
     }
     mock_load_env = MagicMock(return_value=env)
     monkeypatch.setattr(worker_hook, "load_env", mock_load_env)
@@ -268,7 +271,7 @@ def test_main_worker_success(monkeypatch) -> None:
     worker_hook.main()
 
     mock_notify.assert_called_once_with("http://manager", "secret", "worker_node", "active")
-    mock_discord.assert_not_called()
+    mock_discord.assert_called_once_with("http://discord", "Node starting up")
 
 
 def test_main_worker_active_failure_fallback_notification(monkeypatch) -> None:
@@ -278,7 +281,8 @@ def test_main_worker_active_failure_fallback_notification(monkeypatch) -> None:
         "API_PSK": "secret",
         "MANAGER_API_URL": "http://manager",
         "DISCORD_WEBHOOK_URL": "http://discord",
-        "DISCORD_STARTUP": "Node starting up",
+        "DISCORD_NODE_STARTUP": "Node starting up",
+        "DISCORD_API_ERROR": "API Error: {error}",
     }
     mock_load_env = MagicMock(return_value=env)
     monkeypatch.setattr(worker_hook, "load_env", mock_load_env)
@@ -302,7 +306,9 @@ def test_main_worker_active_failure_fallback_notification(monkeypatch) -> None:
         worker_hook.main()
 
     mock_notify.assert_called_once_with("http://manager", "secret", "worker_node", "active")
-    mock_discord.assert_called_once_with("http://discord", "Node starting up")
+    assert mock_discord.call_count == 2
+    mock_discord.assert_any_call("http://discord", "Node starting up")
+    mock_discord.assert_any_call("http://discord", "API Error: Error")
     mock_exit.assert_called_once_with(1)
 
 
@@ -389,7 +395,8 @@ def test_main_notify_manager_error(monkeypatch) -> None:
         "API_PSK": "secret",
         "MANAGER_API_URL": "http://manager",
         "DISCORD_WEBHOOK_URL": "http://discord",
-        "DISCORD_SHUTDOWN": "Node shutting down",
+        "DISCORD_NODE_SHUTDOWN": "Node shutting down",
+        "DISCORD_API_ERROR": "API Error: {error}",
     }
     mock_load_env = MagicMock(return_value=env)
     monkeypatch.setattr(worker_hook, "load_env", mock_load_env)
@@ -413,5 +420,7 @@ def test_main_notify_manager_error(monkeypatch) -> None:
         worker_hook.main()
 
     mock_notify.assert_called_once_with("http://manager", "secret", "worker_node", "drain")
-    mock_discord.assert_called_once_with("http://discord", "Node shutting down")
+    assert mock_discord.call_count == 2
+    mock_discord.assert_any_call("http://discord", "Node shutting down")
+    mock_discord.assert_any_call("http://discord", "API Error: Error")
     mock_exit.assert_called_once_with(1)

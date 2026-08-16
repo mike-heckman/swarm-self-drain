@@ -41,12 +41,21 @@ This document outlines the architecture for the "Event-Driven Worker-Initiated D
    *Mitigation:* The API should either read the secret file per-request, or require a container restart upon secret rotation. For MVP, reading the secret per-request is safer since the file is mounted in `tmpfs` and IO is cheap, avoiding the need for a service restart.
 
 ## 4. Discord Notifications (Optional)
-To provide visibility into the cluster state, both the worker hook and the manager API support optional Discord notifications:
-- **Worker Hook:** If `DISCORD_SHUTDOWN` or `DISCORD_STARTUP` environment variables are present (along with the webhook URL), the worker script will send these string messages to Discord immediately before executing its API request. This guarantees a notification that the node is going offline even if the manager is unreachable.
-- **Manager API:** If `DISCORD_SWARM_ACTIVE` or `DISCORD_SWARM_DRAIN` environment variables are present, the Manager API will send a message to Discord *after* successfully updating the Docker Swarm node state. This confirms the action was successfully applied to the cluster.
-## 4. Work Breakdown (Tasks)
-To be implemented:
-1. `0001-coder.md`: Implement the FastAPI Manager App (`src/api.py`).
-2. `0002-coder.md`: Create the Dockerfile and `docker-compose.yml`.
-3. `0003-coder.md`: Write the Worker Python script and systemd unit file (`scripts/worker-hook.py`, `scripts/swarm-self-drain.service`).
-4. `0004-coder.md`: Create the Ansible playbook/role for worker node deployment (`ansible/deploy-worker.yml`).
+To provide visibility into the cluster state, both the worker hook and the manager API support optional Discord notifications mapped to 6 distinct states:
+
+**Startup Notifications**
+| Name                     | Sent by | Description    |
+| ------------------------ | ------- | ----------------------------------------------------------------------|
+| `DISCORD_NODE_STARTUP`   | Worker  | Sent immediately when the node starts its startup procedure.          |
+| `DISCORD_SWARM_ACTIVE`   | Worker  | Sent *only* if the worker hook is running on a Manager node, after successfully activating locally. |
+| `DISCORD_SWARM_ACTIVE`   | Manager | Sent after the API successfully activates a standard worker node. |
+| `DISCORD_API_ERROR`      | Worker  | Sent if the worker fails to reach the Manager API or encounters an error. |
+| `DISCORD_API_STARTUP`    | Manager | Sent when the Manager API container itself starts up. |
+
+**Shutdown Notifications**
+| Name                     | Sent by | Description    |
+| ------------------------ | ------- | ----------------------------------------------------------------------|
+| `DISCORD_NODE_SHUTDOWN`  | Worker  | Sent immediately when the node starts its shutdown procedure.         |
+| `DISCORD_SWARM_DRAIN`    | Worker  | Sent *only* if the worker hook is running on a Manager node, after successfully self-draining locally. |
+| `DISCORD_SWARM_DRAIN`    | Manager | Sent after the API successfully drains a standard worker node.        |
+
