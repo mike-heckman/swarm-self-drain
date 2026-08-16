@@ -255,3 +255,51 @@ def test_get_discord_webhook_url_missing_env(monkeypatch):
 
     monkeypatch.delenv("DISCORD_WEBHOOK_URL_FILE", raising=False)
     assert get_discord_webhook_url() is None
+
+
+@pytest.mark.asyncio
+@patch("src.api.httpx.AsyncClient")
+async def test_lifespan_startup(mock_async_client, monkeypatch):
+    """Test the lifespan context manager sends a startup notification."""
+    from src.api import DISCORD_API_STARTUP_ENV, app, lifespan
+
+    monkeypatch.setenv(DISCORD_API_STARTUP_ENV, "API Node {node_name} started.")
+
+    # Mock socket.gethostname to ensure deterministic output
+    import socket
+
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-host")
+
+    mock_client_instance = mock_async_client.return_value.__aenter__.return_value
+    mock_response = MagicMock()
+    mock_client_instance.post.return_value = mock_response
+
+    async with lifespan(app):
+        # Startup phase should have triggered a notification
+        mock_client_instance.post.assert_called_once()
+        args, kwargs = mock_client_instance.post.call_args
+        assert args[0] == "http://mock-webhook"
+        assert kwargs["json"]["content"] == "API Node mocked-host started."
+
+
+@pytest.mark.asyncio
+@patch("src.api.httpx.AsyncClient")
+async def test_lifespan_startup_hostname_exception(mock_async_client, monkeypatch):
+    """Test the lifespan handles gethostname exceptions."""
+    from src.api import DISCORD_API_STARTUP_ENV, app, lifespan
+
+    monkeypatch.setenv(DISCORD_API_STARTUP_ENV, "API Node {node_name} started.")
+
+    # Mock socket.gethostname to raise an OSError
+    import socket
+
+    monkeypatch.setattr(socket, "gethostname", MagicMock(side_effect=OSError("Failed")))
+
+    mock_client_instance = mock_async_client.return_value.__aenter__.return_value
+    mock_response = MagicMock()
+    mock_client_instance.post.return_value = mock_response
+
+    async with lifespan(app):
+        mock_client_instance.post.assert_called_once()
+        args, kwargs = mock_client_instance.post.call_args
+        assert kwargs["json"]["content"] == "API Node unknown started."

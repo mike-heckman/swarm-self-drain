@@ -8,6 +8,7 @@ import hmac
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Final
 
@@ -19,12 +20,40 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Swarm Self-Drain Manager API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for FastAPI startup and shutdown events.
+
+    Args:
+        app: The FastAPI application instance.
+    """
+    webhook_url = get_discord_webhook_url()
+    discord_message = os.environ.get(DISCORD_API_STARTUP_ENV)
+
+    if webhook_url and discord_message:
+        try:
+            import socket
+
+            hostname = socket.gethostname()
+        except OSError:
+            hostname = "unknown"
+
+        formatted_message = discord_message.format(node_name=hostname)
+        await send_discord_notification(webhook_url, formatted_message)
+
+    yield
+    # No shutdown logic required
+
+
+app = FastAPI(title="Swarm Self-Drain Manager API", lifespan=lifespan)
 
 API_PSK_FILE_ENV: Final = "API_PSK_FILE"
 DISCORD_WEBHOOK_URL_FILE_ENV: Final = "DISCORD_WEBHOOK_URL_FILE"
 DISCORD_SWARM_DRAIN_ENV: Final = "DISCORD_SWARM_DRAIN"
 DISCORD_SWARM_ACTIVE_ENV: Final = "DISCORD_SWARM_ACTIVE"
+DISCORD_API_STARTUP_ENV: Final = "DISCORD_API_STARTUP"
 
 
 class NodeRequest(BaseModel):

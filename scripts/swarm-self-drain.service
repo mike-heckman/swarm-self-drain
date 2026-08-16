@@ -1,0 +1,15 @@
+[Unit]
+Description=Docker Swarm Self-Drain Hook
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /opt/swarm-self-drain/worker-hook.py active
+ExecStop=/usr/bin/python3 /opt/swarm-self-drain/worker-hook.py drain
+TimeoutStartSec=90
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target
